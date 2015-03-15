@@ -1,0 +1,119 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{minted}
+\usepackage{amsmath,amsthm, amsfonts, array}
+\usepackage{graphicx,booktabs,xcolor,color,soul}
+\usepackage{url}
+\usepackage{multirow}
+\usepackage{epstopdf}
+\usepackage{listings}
+\definecolor{shadecolor}{rgb}{0.95,0.95,0.95}
+\usepackage{hyperref}
+\usepackage[numbers]{natbib}
+\hypersetup{
+  colorlinks = true,
+  urlcolor  = blue,
+  linkcolor = red,
+  citecolor = green
+}
+\DeclareMathOperator*{\mini}{minimize}
+\DeclareMathOperator*{\maxi}{maximum}
+\DeclareMathOperator*{\argmax}{argmax}
+\DeclareMathOperator*{\argmin}{argmin}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newenvironment{definition}[1][Definition]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}]}{\end{trivlist}}
+\title{Stochastic Average Gradient on Logistic Regression and Markov Random Field}
+\author{Eric Xin Zhou}
+\begin{document}
+\maketitle
+
+\section{Summary}
+\citet{schmidt2013minimizing} proposed the \href{http://www.cs.ubc.ca/\%7Eschmidtm/Software/SAG.html}{Stochastic Average Gradient(SAG)} algorithm as a faster solver for optimizing the sum of finite number of smooth convex functions. Our project aims to create a SAG R package of optimizer solver which applies SAG algorithm to \emph{l}-2 logistic regression and Markov random field.
+
+\section{Description}
+\subsection{Minimizing finite sums problems}
+In large-scale machine learning, there are plethora of optimization problems based on empirical risk minimization principle in statistical learning theory, this class of problems involve computing a minimizer of a finite sum of a set of smooth functions, since the sum structure is a natural form of loss function over large numbers of data points \eqref{eq:general}. Therefore, our goal is to minimize $g(x)$ function with respect to optimization variable $x$, which is a vector of real number($x \in \mathbb{R}^p$). 
+
+\begin{equation}\label{eq:general}
+    g(x) := \frac{1}{n}\sum_{i=1}^n f_i(x)
+\end{equation}
+
+Additionally the most widely successful class of algorithms to minimize sum structure problems are stochastic gradient methods. While stochastic average method is a faster algorithm which achieves $\mathcal{O}(\rho^k)$ coverage rate when summed function is strongly-convex\cite{roux2012stochastic, schmidt2013minimizing}, it reduces the cost of iteration of gradient descent by keeping last iteration's gradient in memory.
+
+
+\subsection{SAG applied to logistic regression}
+We will implement the SAG R package, which will contain a solver for L-2 norm regularized logistic regression. For multiple data logistic regression, its loss function can be written as \eqref{eq:l2lr}.
+
+\begin{equation}\label{eq:l2lr}
+  g(x) := \frac{\lambda||x||^2}{2} + \frac{1}{n}\sum\limits_{i=1}^n\log{(1+\exp(-b_ia_i^Tx))}
+\end{equation}
+
+Where $a_i$ is predictor in logistic regression problem and $a_i \in \mathbb{R}^p$, and $b_i$ is response of this problem. For categorical problem,  $b_i \in \{-1,1\}$. Furthermore, $x$ is the coefficient we will estimate and regularize parameter $\lambda$ is to control our fitting parameters and we replace $f_i(x)$ in (1) by right-hand-side of equation \eqref{eq:subtitution}. So the L-2 regularize logistic regression problem is an optimization problem for finite sum and SAG can be applied to solving this class of problems. In SAG algorithm, randomly selected $f_i(x)$'s gradient will be evaluated by \eqref{eq:lrgradient}.
+
+
+\begin{equation}\label{eq:optlr}
+  \begin{aligned}
+    \min_{x \in \mathbb{R}^p} \frac{1}{n}\sum\limits_{i=1}^n\log{(1+\exp(-b_ia_i^Tx))} + \frac{\lambda||x||^2}{2} \\
+  \end{aligned}
+\end{equation}
+
+\begin{equation}\label{eq:subtitution}
+  f_i(x) = \log{(1+\exp(-b_ia_i^Tx))} + \frac{\lambda||x||^2}{2}
+\end{equation}
+
+\begin{equation}\label{eq:lrgradient}
+  \nabla f_i(x) = \lambda x - \frac{b_ia_i\exp(-b_ia_i^Tx)}{1+\exp(-b_ia_i^Tx)}
+\end{equation}
+
+
+Then we will compare the convergency rate and result of SAG solver with the L-2 norm regularized logistic regression in package glmnet\cite{friedman2010regularization}/optimx. We will use \texttt{system.time} to record the time each solver consume.
+
+\subsection{SAG applied to CRF}
+Also, \citet{schmidtnon} also claimed that SAG can be implemented to train conditional random fields(CRF). 
+
+CRF is an undirected graph model for observations $\mathbf{a}$ and latent variables $\mathbf{b}$. For example, in a chain graph model of words recognition, $\mathbf{a}$  represents a sequence of observations, such as different image of different letter. $\mathbf{b}$ represents a sequence of hidden state variables(real letters of words) that needs to be inferred given the observations. The $\mathbf{b}$(hidden letter states) are structured to form a chain, with an edge between $b_{j}$ and $b_{j+1}$. The observation $\mathbf{a}_{j}$ depends on $\mathbf{b}_{j}$. Therefore, we can define the conditional dependence of $\mathbf{a}$ and $\mathbf{b}$ through a set of \emph{feature functions} $F_k(b_j, b_{j-1}, a_j)$, which are indicator functions of each edge in the graph model. Based on these \emph{feature functions} and their correspond parameters $x$. A conditional probability $p(\mathbf{b}|\mathbf{a}, x)$ is built to estimate the hidden letter structure of our observation for traning and inference.
+
+Therefore in general CRF chain model, we are considering a multiple observed conditional distribution $\mathbf{P}(\mathbf{b}|\mathbf{a}) = \prod_{i=1}^n \mathbf{P}(\mathbf{b}^{(i)}|\mathbf{a}^{(i)})$ in \eqref{eq:crfcond}, for each observation, $\mathbf{a}^{(i)} = (a_1^{(i)},a_2^{(i)},...,a_T^{(i)})$ means that we have a $T$-state structure to estimate, also $\mathbf{b}^{(i)} = (b_1^{(i)}, b_2^{(i)},..., b_T^{(i)})$ is a vector of $T$ hidden states. Furthermore, $x^{(i)} = (x_1^{(i)},x_2^{(i)},...,x_p^{(i)})$ is the correspond $\mathbb{R}^p$ parameter vector.
+
+\begin{equation}\label{eq:crfcond}
+  \mathbf{P}(\mathbf{b}^{(i)}|\mathbf{a}^{(i)}) = \frac{\mathbf{P}(\mathbf{b}^{(i)},\mathbf{a}^{(i)})}{Z^{(i)}} = \frac{1}{Z^{(i)}}\prod_{t=1}^T\exp{(\sum_{k=1}^p x_k F_k(b_{t-1}^{(i)}, b_t^{(i)}, a^{(i)}))}
+\end{equation}
+
+\begin{equation}
+  Z^{(i)} = \sum_{\mathbf{b^{'(i)}}} \exp{(\sum_{t=1}^T\sum_{k=1}^p x_k F_k(b_{t-1}^{'(i)}, b_t^{'(i)}, a_t^{(i)}))} \nonumber
+\end{equation}
+
+Where $F_k(b_{t-1}^{(i)}, b_t^{(i)}, a^{(i)})$ is a \emph{feature function} which represents $\mathbf{1}_{b_t^{(i)}=i}\mathbf{1}_{b_{t-1}^{(i)}=j}$ or $\mathbf{1}_{b_t^{(i)}=i}\mathbf{1}_{a_t^{(i)}=o}$, where $\mathbf{1}_{x = a}$ is an indicator function to display whether $x = a$ or not. Therefore, we can treat $F_k(b_{t-1}^{(i)}, b_t^{(i)}, a_t^{(i)})$ as a function for each edge in factor graph $G$. CRF can provide a discriminative model to predict each input $a$'s label $b^*$ by maximizing likelihood\eqref{eq:crfLik}, where $b^* = \argmax\limits_b \mathbf{P}(b|a, \mathbf{x})$.
+
+To estimate parameters $\mathbf{x} = \{x_k\} \in \mathbb{R}^p$ in the $\mathbf{P}(\mathbf{b}|\mathbf{a})$, we always train l2 regularized CRF by to obtain highest likelihood\eqref{eq:crfLik} on training data, where the $\lambda$ is regularized parameter to control the fitting parameters.
+
+\begin{equation}\label{eq:crfLik}
+  L(x) = \frac{1}{n} \log[\mathbf{P}(\mathbf{b}|\mathbf{a})] = \frac{1}{n} \sum_{i=1}^{n} [\frac{\lambda}{2}||x||^2 - \sum_{t=1}^T\sum_{k=1}^p x_k F_k(b_{t-1}^{(i)}, b_t^{(i)}, a_t^{(i)}) + \log(Z^{(i)})]
+\end{equation}
+
+CRF model will minimize $L(x)$ with respect to parameters $\mathbf{x}$ in \eqref{eq:minLik}, so CRF can be viewed as a special form of finite sum of smooth function in \eqref{eq:Liksum}. For SAG, since $\nabla f_i(x) = (\frac{\partial{f_i(x)}}{\partial{x_1}}, \frac{\partial{f_i(x)}}{\partial{x_2}},..., \frac{\partial{f_i(x)}}{\partial{x_p}})^T$, we will estimate each $\frac{\partial{f_i(x)}}{\partial{x_k}}$, where $k \in [1,p]$ for $\nabla f_k(x)$ in \eqref{eq:crfgrad}.
+
+\begin{equation}\label{eq:minLik}
+  \min_{x \in \mathbb{R}^p} \frac{1}{n} \sum_{i=1}^{n} [\frac{\lambda}{2}||x||^2 - \sum_{t=1}^T\sum_{k=1}^p x_k F_k(b_{t-1}^{(i)}, b_t^{(i)}, a_t^{(i)}) + \log(Z^{(i)})]
+\end{equation}
+
+\begin{equation}\label{eq:Liksum}
+  f_i(x) = \frac{\lambda}{2}||x||^2 - \sum_{t=1}^T\sum_{k=1}^p x_k F_k(b_{t-1}^{(i)}, b_t^{(i)}, a_t^{(i)}) + \log(Z^{(i)})
+\end{equation}
+
+\begin{equation}\label{eq:crfgrad}
+  \frac{\partial{f_i(x)}}{\partial{x_k}} = \lambda x_k - \sum_{t=1}^T F_k(b_{t-1}^{(i)}, b_t^{(i)}, a_t^{(i)}) + \sum_{\mathbf{b^{'(i)}}} \sum_{t=1}^T F_k(b_{t-1}^{'(i)}, b_t^{'(i)}, a_t^{(i)}) \mathbf{P}(\mathbf{b}^{'(i)}|\mathbf{a}^{(i)})
+\end{equation}
+
+Our implementation of the SAG R package will contain a solver for training L-2 regularize CRF model. Also with the R package \href{http://cran.r-project.org/web/packages/CRF/index.html}{CRF} for UGM inference and traning, we will compare our SAG training function both the convergency rate and estimate parameter value. We will use \texttt{system.time} to record each solver's time consuming and compare two different method's result.
+
+
+\bibliography{ref}
+\bibliographystyle{plainnat}
+\newpage
+
+\end{document}
