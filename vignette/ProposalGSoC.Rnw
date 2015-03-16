@@ -1,0 +1,148 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{minted}
+\usepackage{amsmath,amsthm, amsfonts, array}
+\usepackage{graphicx,booktabs,xcolor,color,soul}
+\usepackage{url}
+\usepackage{multirow}
+\usepackage{epstopdf}
+\usepackage{listings}
+\definecolor{shadecolor}{rgb}{0.95,0.95,0.95}
+\usepackage{hyperref}
+\usepackage[numbers]{natbib}
+\hypersetup{
+  colorlinks = true,
+  urlcolor  = blue,
+  linkcolor = red,
+  citecolor = green
+}
+\DeclareMathOperator*{\mini}{minimize}
+\DeclareMathOperator*{\maxi}{maximum}
+\DeclareMathOperator*{\argmax}{argmax}
+\DeclareMathOperator*{\argmin}{argmin}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newenvironment{definition}[1][Definition]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}]}{\end{trivlist}}
+\title{Create a Stochastic Average Gradient R package}
+\author{Eric Xin Zhou}
+\begin{document}
+\maketitle
+
+\begin{description}  
+  \item Eric Xin Zhou(xinchoubiology)
+  \item PhD candidate of Electrical and Computer Engineering
+  \item University of Miami,
+  \item Coral Gables, Florida
+  \item United States
+  \item Email: \href{mailto:xxz220@miami.edu}{xxz220@miami.edu}
+\end{description}
+
+\section{Summary}
+\citet{schmidt2013minimizing} proposed the \href{http://www.cs.ubc.ca/\%7Eschmidtm/Software/SAG.html}{Stochastic Average Gradient(SAG)} algorithm as a faster solver for optimizing the sum of finite number of smooth convex functions. Our project aims to create a SAG R package of optimizer solver which applies SAG algorithm to several optimization problems.
+
+\section{Motivation}
+In large-scale machine learning, there are plethora of optimization problems based on empirical risk minimization principle in statistical learning theory. This class of problems involves computing a minimizer of a finite sum of a set of smooth functions. Assuming we have N data points and a convex loss function that can be decomposed into a sum of N convex cost function, this loss function is called sum structure function. Then, our goal is to minimize the loss function with respect to the optimization coefficient variables. 
+
+Stochastic gradient method is known as a successful algorithm that is widely applied to minimize the sum structure problem,
+but its convergence rate is sub-linear. To improve this class of optimization problems' convergence rate, \citet{schmidt2013minimizing} proposed the Stochastic Average Gradient(SAG) algorithm, which achieves linear coverage rate when the summed function is strongly-convex\cite{roux2012stochastic, schmidt2013minimizing}. \citet{schmidt2013minimizing} also compared the SAG with known FG and SG methods on \emph{L}-2 regularized logistic regression problem, such as L-BGFS, AFG and SG. Finally, they find that SAG achieve the best speed to converge to optimum. Therefore, \citet{schmidt2013minimizing} claims that their SAG achieved the best performance on classification data set.
+
+There are many packages that have been created to help R users handle big data these years, and accelerating the classification problems on big data is still an important task for R comunity. Therefore, we expect the SAG to be faster than existing R packages, such as glmnet.
+
+
+\section{Project Description}
+\subsection{Create SAG R package}
+SAG R package will contains three modified solvers based on \citet{schmidt2013minimizing}'s C code with `mex.h' of SAG, then we will implement these SAG solvers on 2 practical problems, \emph{L}-2 regularized logistic regression problem and \emph{L}-2 regularized conditional random field(CRF) training.
+
+\subsection{SAG applied to logistic regression}
+When each data point is a feature vector with binary label, we can use \emph{L}-2 regularized logistic regression model to predict binary responses from their feature vectors. Since \emph{L}-2 regularized logistic regression model is a sum structure function\footnote{Please read section 2.2 \href{https://github.com/xinchoubiology/SAG/blob/master/vignette/Intro2Lr\_and\_MRF.pdf?raw=true}{Intro2Lr\_and\_MRF} for more mathematical details}, we will implement the solvers of SAG R package for \emph{L}-2 regularized logistic regression. SAG can update parameters by randomly selecting a summed function from the entire observations.
+
+Then we will compare the training time measured using the \texttt{system.time} function and the result of the SAG solver with the  \emph{L}-2 regularized logistic regression in package glmnet\cite{friedman2010regularization}/optimx.
+
+\subsection{SAG applied to CRF}
+Also, \citet{schmidtnon} claimed that SAG can be implemented to train the conditional random fields(CRF). 
+
+CRF is an undirected graph model for observations and latent variables. For example, in a chain graph model of word recognition, we can observe the different image patterns of the letters that constitute the entire word. If we wish to infer the hidden state variable(real letter of word) of each given observation, we will assume that these hidden letter states have certain structure to form a chain or graph, and the image of each letter depends its corresponding hidden state . As the result, we can define a graph for these observations and their corresponding hidden states, then we define each edge in this graph by a \emph{feature functions}.
+
+Assuming that we have N words(or observations) for the CRF, and their liklihood functions can be decomposed into a sum of N liklihood functions\footnote{Please read section 2.3 \href{https://github.com/xinchoubiology/SAG/blob/master/vignette/Intro2Lr\_and\_MRF.pdf?raw=true}{Intro2Lr\_and\_MRF} for more mathematical details of conditional random field}. Then, SAG can be applied to maximize the CRF's liklihood function in the CRF's training process. 
+
+Our implementation of SAG R package will contain a solver for training the \emph{L}-2 regularize CRF model. Then we will compare traning time measured by \texttt{system.time} function and estimate parameters' value of our CRF training function and the training function of R package \href{http://cran.r-project.org/web/packages/CRF/index.html}{CRF}.
+
+
+\section{Roadmap}
+\subsection{Relate tasks}
+\begin{description}
+  \item[$\bullet$] Mark Schmidt has published C/matlab code implement SAG for L2 regularization logistic regression and least-square regression. Therefore, out first goal is to convert Mark's C code with `mex.h' headers to C code with `R.h' headers by Rcpp for the three main SAG methods(\textcolor{blue}{SAG.c}, \textcolor{blue}{SAGlinesearch.c} and \textcolor{blue}{SAG\_LipschitzLS.c}). 
+  \item[$\bullet$] Converting Mark's documentation comments in C code to .Rd file.
+  \item[$\bullet$] Creating vignettes using Mark's two example data sets \texttt{rcv1\_train} and \texttt{covtyp}
+  \texttt{e.libsvm} data sets. In these vignettes, we will show these 3 solvers work well and we will compare time and result of SAG  with result of function \texttt{glmnet} in \textcolor{blue}{glmnet}. 
+  <<glmnet-usage, echo=TRUE, eval=FALSE>>=
+  fit <- glmnet(X, y, family = "binomial", 
+                      lambda = lambda, alpha = 0)
+  par.est <- coef(fit)
+  system.time(glmnet(X, y, family = "binomial", 
+                           lambda = lambda, alpha = 0))
+  @
+  Also, we will compare SAG solvers to the function optimx in package \textcolor{blue}{optimx}. And then, we will compare
+  SAG's result and time to results of function \texttt{glmnet} and \texttt{optimx}.
+  <<optimx-usage, echo=TRUE, eval=FALSE>>=
+  lr.f <- function(theta, lambda = 0.1){
+    fval <- lambda * crossprod(theta)[1] / 2
+            + sum(log(1 + exp(-y * X %*% theta))) / dim(X)[1]
+    return(fval)
+  }
+  
+  par.init <- runif(dim(X)[2],min = 0, max = 0.001)
+
+  fit <- optimx(par.init, fn = lr.f, method = "CG")
+  par <- coef(fit)
+  @
+  
+  \item[$\bullet$] Validating SAG R package :
+      \begin{itemize}
+        \item get the right answer(gradient with norm close to 0)
+        \item get the same answer as glmnet
+      \end{itemize}
+  \item[$\bullet$] Creating \textcolor{blue}{SAG\_CRF.update} function based on these three solvers and comparing its output to the result of function \texttt{train.crf(crf)} in package \href{https://github.com/cran/CRF}{CRF} by Lin-Yun Wu.
+  In CRF package, we can estimate parameter for given data and graph structure by function \texttt{train.crf(crf, instance)}.
+  <<train-crf, echo=TRUE, eval=FALSE>>=
+  crf <- make.crf(adj, n.states = nstats)
+  crf <- train.crf(crf, instances, nodefeature, edgefeature)
+  parameter <- crf$par  ## estimation parameters
+  node.potential <- crf$node.pot
+  edge.potential <- crf$edge.pot
+  @
+\end{description}
+
+\subsection{Timeline}
+\begin{description}
+  \item (2$\sim$3 weeks) Build SAG R package and convert Mark Schmidt's C code with mex.h into C code can be called by R. The SAG's functions contain: 
+  \begin{description}
+  \item \textcolor{blue}{SAG\_logistic.c}
+  \item \textcolor{blue}{SAG\_LipschitzLS\_logsitic.c} 
+  \item \textcolor{blue}{SAGlineSearch\_logistic.c}
+  \end{description}
+  \item (1$\sim$2 weeks) Convert the three SAG solvers BLAS version to C code with "R.h". These three functions are 
+  \begin{description}
+  \item \textcolor{blue}{SAG\_logistic\_BLAS.c} 
+  \item \textcolor{blue}{SAG\_LipschitzLS\_logsitic\_BLAS.c}
+  \item \textcolor{blue}{SAGlineSearch\_logistic\_BLAS.c}
+  \end{description}
+  \item (2 weeks) Build vignettes with Mark's example data \texttt{rcv1\_train} and \texttt{covtype.libsvm} data sets, and compare result of SAG with glmnet.
+  \item (2 weeks) Build \textcolor{blue}{SAG\_CRF.update} function for conditional random field and write another vignettes about SAG's speed and result comparing with cran CRF package's for test data \href{http://www.cs.ubc.ca/\%7Eschmidtm/Software/UGM/trainCRF.html}{rain data}.
+  \item (1$\sim$2 weeks) Write documents for these functions. We will convert Mark's documentation comments in C code to .Rd files.
+  \item (1$\sim$2 weeks) Write code and document for a \texttt{SAGoptim} function which is analogous to function \texttt{optimx} in R package optimx, and \texttt{SAGoptim} function is an extension of function \texttt{optimx}, it can compute a minimizer of finite sum of functions. 
+\end{description}
+
+
+\section{Mentors}
+John Nash(\href{mailto:nashjc@uottawa.ca}{nashjc@uottawa.ca}) and Toby Dylan Hocking(\href{mailto:toby.hocking@mail.mcgill.ca}{toby.hocking@mail.mcgill.ca}) are mentors of this project.
+
+
+\bibliography{ref}
+\bibliographystyle{plainnat}
+\newpage
+
+\end{document}
